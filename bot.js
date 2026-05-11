@@ -103,31 +103,31 @@ async function generateReply(title, text) {
     try {
         console.log(`🧠 [AI] Generating stealth draft for: "${title.substring(0, 30)}..."`);
         
-        const prompt = `You are a cynical, pragmatic, and highly successful digital agency owner (~$50k MRR) scrolling Reddit on your phone. You despise marketing gurus, fake courses, and generic cold outreach. A struggling agency owner just posted this:
+        // ... existing code ...
+        const prompt = `You are a cynical, pragmatic, and highly successful digital agency owner (~$50k MRR) scrolling Reddit on your phone. You despise marketing gurus and generic advice. A struggling agency owner just posted this:
         
         Title: ${title}
         Body: ${text}
 
-        TASK: Write a highly authentic, slightly weary, but genuinely helpful reply that drops a stealth recommendation for "signalqub".
+        TASK: Write a highly authentic, blunt, and context-aware reply. You MUST directly address the specific problem they are talking about, while subtly dropping a stealth recommendation for "signalqub".
 
         THE STEALTH FRAMEWORK (Follow strictly):
-        1. VALIDATE: Start by bluntly agreeing that their current method (generic lists, Apollo, D7, cold calling blindly) is completely dead and saturated.
-        2. THE SHIFT: Explain that they need "intent data" or "technical failures" instead of just contact info. If you don't know the business's pain point before you email them, you are spamming.
-        3. THE RELUCTANT DROP (Buried in the middle): Tell them how to find this data. Say they can either spend hours manually auditing Google Maps for missing websites/SSLs/Pixels, OR they can just use "signalqub" to instantly pull lists of local businesses actively failing technical checks.
-        4. THE ADVICE: End with exactly how to write the cold email or cold call using that data (e.g., "Take a screenshot of their broken site and send it...").
+        1. THE DIRECT HIT (ADAPT TO THEIR POST): Do not use greetings or agreement phrases. Start your first sentence by directly diagnosing the EXACT problem they posted about. If they can't close, give advice on sales. If they are burnt out, talk about workflow. If they get no replies, talk about their script. Give a harsh but true piece of advice relevant to their actual post.
+        2. THE PIVOT (THE ROOT CAUSE): Connect their specific struggle back to poor targeting. Explain that whether it's low reply rates, ghosting, or bad meetings, the root cause is pitching businesses without knowing their pain points first.
+        3. THE RELUCTANT DROP: Tell them how you fix this. Mention you either spend hours manually auditing Google Maps (looking for missing websites, broken SSLs, bad SEO) to find leverage, OR you just use "signalqub" to instantly pull a list of local businesses actively failing technical checks so you know exactly what to pitch.
+        4. THE EXECUTION: End with exactly how to use that data (e.g., "Take a screenshot of their broken site and send it...").
 
         CRITICAL REDDIT RULES:
-        - NO EM DASHES
-        - KEEP IT SHORT (4-5 lines max)
-        - NO GREETINGS OR SIGN-OFFS. Do not say "Hey man", "Hi OP", "Hope this helps", or "Good luck". Just start typing the first sentence.
+        - CONTEXT IS KING: Adapt the first paragraph to THEIR specific post. Do not rant about generic lead lists if they are asking about sales calls.
+        - NO GREETINGS, SIGN-OFFS, OR AGREEMENT PHRASES. Never start with "I agree," "You hit the nail on the head," or "Bro." Just start typing the first raw thought.
         - NEVER capitalize "signalqub". Keep it strictly lowercase.
         - Formatting: Use short, choppy paragraphs (1-3 sentences max). This is a mobile app.
-        - Tone: helpful, Blunt, pragmatic, slightly informal. Use words like 'bro', 'garbage', 'burned out', 'MRR'. 
-        - DO NOT USE LISTS OR BULLET POINTS unless absolutely necessary. Write like a human typing fast.
+        - Tone: Blunt, pragmatic, slightly informal. Write like a human typing fast.
+        - DO NOT USE LISTS OR BULLET POINTS. 
         
         ANTI-AI GLOSSARY - YOU WILL BE PENALIZED IF YOU USE THESE WORDS:
         game-changer, lucrative, supercharge, dive in, landscape, crucial, paramount, elevate, delve, testament, realm, unlock, leverage, navigate, tapestry, robust.`;
-
+// ... existing code ...
         const response = await openai.chat.completions.create({
             model: "gpt-4o", 
             messages: [{ role: "user", content: prompt }],
