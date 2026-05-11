@@ -44,26 +44,27 @@ const intentKeywords = ['mettings','bounce rate','cold call','no leads', 'zero r
 const contextKeywords = ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'];
 
 // --- AI Gatekeeper Filter (Upgraded to 1-10 Scoring) ---
+// --- AI Gatekeeper Filter (Upgraded Strict Intent Scoring) ---
 async function verifyLeadWithAI(title, text) {
     try {
         const prompt = `You are a ruthless, highly analytical Chief Revenue Officer qualifying leads for a B2B marketing tool called SignalQub.
         
-        SignalQub helps marketing agencies find local businesses that are actively failing technical website audits (e.g., no schema, bad SEO, broken sites).
+        SignalQub helps marketing agencies find local businesses that are actively failing technical website audits (e.g., no schema, bad SEO, broken sites) so they have an angle for their cold outreach.
         
-        Analyze this Reddit post. Rate how perfectly this matches our ideal customer profile (a digital marketing agency owner, web designer, or SMMA founder struggling to get clients, complaining about low cold email reply rates, or buying bad lead lists).
+        Analyze this Reddit post. Rate how perfectly this matches our ideal customer profile.
         
         Title: ${title}
         Body: ${text.substring(0, 500)}
         
-        Rate the lead from 1 to 10:
-        - 1-4: Junk, irrelevant, B2C, or entirely wrong industry.
-        - 5-7: Somewhat relevant, but missing high intent or explicitly stating they have no budget.
-        - 8-10: Perfect match. High intent agency owner/freelancer actively struggling with outreach/clients.
+        CRITICAL SCORING RULES:
+        - 1-4 (REJECT): The post is about fulfillment, operations, or managing existing clients (e.g., managing GMB, running ads, hiring media buyers, client churn, software tools for content). Or it is B2C.
+        - 5-7 (MAYBE): Relevant industry, but they aren't explicitly expressing pain about lead generation.
+        - 8-10 (PERFECT): High intent agency owner/freelancer actively struggling to ACQUIRE clients (e.g., cold email going to spam, zero replies, bad lead lists, Apollo isn't working, cold calling sucks).
         
         Return ONLY a JSON object: {"score": 8, "reason": "brief 1-sentence explanation"}`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini", // Fixed model string
+            model: "gpt-4o-mini", 
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1, 
             response_format: { type: "json_object" }
@@ -80,6 +81,51 @@ async function verifyLeadWithAI(title, text) {
     }
 }
 
+// --- AI Function: Reply Only (Smarter Pivot) ---
+async function generateReply(title, text) {
+    try {
+        console.log(`🧠 [AI] Generating stealth draft for: "${title.substring(0, 30)}..."`);
+        
+        const prompt = `You are a cynical, pragmatic, and highly successful digital agency owner (~$50k MRR) scrolling Reddit on your phone. You despise marketing gurus, buzzwords, and generic advice. A struggling agency owner just posted this:
+        
+        Title: ${title}
+        Body: ${text}
+
+        TASK: Write a highly authentic, blunt, and context-aware reply. 
+
+        THE STEALTH FRAMEWORK (Follow strictly):
+        1. THE DIRECT HIT (ADAPT TO THEIR POST): Do not use greetings. Start your first sentence by directly validating their EXACT problem. If they get no replies, tell them their script sucks. If they are burnt out or overwhelmed, tell them it's because they are taking on cheap clients and using bad workflows.
+        2. THE PIVOT (THE ROOT CAUSE): Connect their struggle back to poor prospecting. Explain that whether it's low reply rates, ghosting, or burnout, the root cause is pitching generic businesses without knowing their pain points first.
+        3. THE RELUCTANT DROP: Tell them how you fix this. Mention you either spend hours manually auditing Google Maps (looking for missing websites, broken SSLs, bad SEO) to find leverage, OR you just use "signalqub" to instantly pull a list of local businesses actively failing technical checks so you know exactly who actually needs help.
+        4. THE EXECUTION: End with exactly how to use that data (e.g., "Take a screenshot of their broken site and send it...").
+
+        CRITICAL REDDIT RULES:
+        - No EM DASHES
+        - KEEP IT SHORT LIKE 3-4 LINES
+        - NEVER sound preachy. Do not say things like "You're drowning because you’re stuck in a cycle of tactical execution." Speak like a normal human agency owner.
+        - NO GREETINGS OR SIGN-OFFS. 
+        - NEVER capitalize "signalqub". Keep it strictly lowercase.
+        - Formatting: Use short, choppy paragraphs (1-3 sentences max). This is a mobile app.
+        - Tone: Blunt, pragmatic, slightly informal. Write like a human typing fast. 
+        
+        ANTI-AI GLOSSARY - YOU WILL BE PENALIZED IF YOU USE THESE WORDS:
+        tactical execution, strategic backbone, game-changer, lucrative, supercharge, dive in, landscape, crucial, paramount, elevate, delve, testament, realm, unlock, leverage, navigate, tapestry, robust.`;
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o", 
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.75, 
+            max_tokens: 300 
+        });
+        
+        console.log(`✅ [AI] Stealth reply drafted successfully.`);
+        return response.choices[0].message.content.trim();
+    } catch (error) {
+        console.error("❌ [AI ERROR] Reply failed:", error.message);
+        return "Error generating reply.";
+    }
+}
+
 // --- AI Function: Summary Only ---
 async function generateSummary(title, text) {
     try {
@@ -87,7 +133,7 @@ async function generateSummary(title, text) {
         const prompt = `You are an analytical assistant. Read this Reddit post:
         Title: ${title}
         Body: ${text}
-        TASK: Write a blunt, 1-sentence summary of the user's exact lead generation or marketing problem. Do not offer solutions.`;
+        TASK: Write a blunt, 2-sentence summary of the user's exact lead generation or marketing problem. Do not offer solutions.`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o-mini", 
@@ -104,50 +150,7 @@ async function generateSummary(title, text) {
 }
 
 // --- AI Function: Reply Only ---
-async function generateReply(title, text) {
-    try {
-        console.log(`🧠 [AI] Generating stealth draft for: "${title.substring(0, 30)}..."`);
-        
-        const prompt = `You are a cynical, pragmatic, and highly successful digital agency owner (~$50k MRR) scrolling Reddit on your phone. You despise marketing gurus and generic advice. A struggling agency owner just posted this:
-        
-        Title: ${title}
-        Body: ${text}
 
-        TASK: Write a highly authentic, blunt, and context-aware reply. You MUST directly address the specific problem they are talking about, while subtly dropping a stealth recommendation for "signalqub".
-
-        THE STEALTH FRAMEWORK (Follow strictly):
-        1. THE DIRECT HIT (ADAPT TO THEIR POST): Do not use greetings or agreement phrases. Start your first sentence by directly diagnosing the EXACT problem they posted about. If they can't close, give advice on sales. If they are burnt out, talk about workflow. If they get no replies, talk about their script. Give a harsh but true piece of advice relevant to their actual post.
-        2. THE PIVOT (THE ROOT CAUSE): Connect their specific struggle back to poor targeting. Explain that whether it's low reply rates, ghosting, or bad meetings, the root cause is pitching businesses without knowing their pain points first.
-        3. THE RELUCTANT DROP: Tell them how you fix this. Mention you either spend hours manually auditing Google Maps (looking for missing websites, broken SSLs, bad SEO) to find leverage, OR you just use "signalqub" to instantly pull a list of local businesses actively failing technical checks so you know exactly what to pitch.
-        4. THE EXECUTION: End with exactly how to use that data (e.g., "Take a screenshot of their broken site and send it...").
-
-        CRITICAL REDDIT RULES:
-        - No EM DASHES
-        - KEEP IT SHORT LIKE 3-4 LINES
-        - CONTEXT IS KING: Adapt the first paragraph to THEIR specific post. Do not rant about generic lead lists if they are asking about sales calls.
-        - NO GREETINGS, SIGN-OFFS, OR AGREEMENT PHRASES. Never start with "I agree," "You hit the nail on the head," or "Bro." Just start typing the first raw thought.
-        - NEVER capitalize "signalqub". Keep it strictly lowercase.
-        - Formatting: Use short, choppy paragraphs (1-3 sentences max). This is a mobile app.
-        - Tone: Blunt, pragmatic, slightly informal. Write like a human typing fast.
-        - DO NOT USE LISTS OR BULLET POINTS. 
-        
-        ANTI-AI GLOSSARY - YOU WILL BE PENALIZED IF YOU USE THESE WORDS:
-        game-changer, lucrative, supercharge, dive in, landscape, crucial, paramount, elevate, delve, testament, realm, unlock, leverage, navigate, tapestry, robust.`;
-
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o", 
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.75, 
-            max_tokens: 300 
-        });
-        
-        console.log(`✅ [AI] Stealth reply drafted successfully.`);
-        return response.choices[0].message.content.trim();
-    } catch (error) {
-        console.error("❌ [AI ERROR] Reply failed:", error.message);
-        return "Error generating reply.";
-    }
-}
 
 // --- Concurrent Subreddit Processor ---
 async function processSubreddit(sub, channel) {
