@@ -30,8 +30,7 @@ const subreddits = [
     "coldemail", "content_marketing", "contentmarketing", "css", 
     "digital_marketing", "digitalmarketing", "digitalmarketinghack",
     "emailmarketing", "emailmarketingnow", "entrepreneur", 
-    "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance", 
-    "freelance_forhire", "freelancers", "freelancing", "googlemybusiness", 
+    "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance",  "freelancers", "freelancing", "googlemybusiness", 
     "growthhacking", "instagrammarketing", "leadgeneration", 
     "localseo", "marketing", "marketinggeek", "marketinghelp", 
     "marketingmentor", "microsaas", "onlinecourses", "prowordpress", 
@@ -44,34 +43,40 @@ const subreddits = [
 const intentKeywords = ['mettings','bounce rate','cold call','no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes too much time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam','leads', 'local'];
 const contextKeywords = ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'];
 
-// --- AI Gatekeeper Filter (GPT-4o-mini CRO Persona) ---
-// --- AI Gatekeeper Filter (Upgraded to GPT-5 Mini) ---
-// --- AI Gatekeeper Filter (GPT-4o-mini) ---
+// --- AI Gatekeeper Filter (Upgraded to 1-10 Scoring) ---
 async function verifyLeadWithAI(title, text) {
     try {
         const prompt = `You are a ruthless, highly analytical Chief Revenue Officer qualifying leads for a B2B marketing tool called SignalQub.
         
-        SignalQub helps marketing agencies find local businesses that are actively failing technical website audits like no schema, no consistent social post.
+        SignalQub helps marketing agencies find local businesses that are actively failing technical website audits (e.g., no schema, bad SEO, broken sites).
         
-        Analyze this Reddit post. Does it sound like a digital marketing agency owner, web designer, or SMMA founder who is struggling to get clients, complaining about low cold email reply rates, or buying bad lead lists?
+        Analyze this Reddit post. Rate how perfectly this matches our ideal customer profile (a digital marketing agency owner, web designer, or SMMA founder struggling to get clients, complaining about low cold email reply rates, or buying bad lead lists).
         
         Title: ${title}
         Body: ${text.substring(0, 500)}
         
-        Return ONLY a JSON object: {"isGoodFit": true} or {"isGoodFit": false}`;
+        Rate the lead from 1 to 10:
+        - 1-4: Junk, irrelevant, B2C, or entirely wrong industry.
+        - 5-7: Somewhat relevant, but missing high intent or explicitly stating they have no budget.
+        - 8-10: Perfect match. High intent agency owner/freelancer actively struggling with outreach/clients.
+        
+        Return ONLY a JSON object: {"score": 8, "reason": "brief 1-sentence explanation"}`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4.1", 
+            model: "gpt-4o-mini", // Fixed model string
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1, 
             response_format: { type: "json_object" }
         });
         
         const result = JSON.parse(response.choices[0].message.content.trim());
-        return result.isGoodFit === true;
+        return {
+            score: parseInt(result.score) || 0,
+            reason: result.reason || "No reason provided."
+        };
     } catch (error) {
         console.error("❌ [AI FILTER ERROR] Failed to qualify lead:", error.message);
-        return false; 
+        return { score: 0, reason: "API Error" }; 
     }
 }
 
@@ -103,7 +108,6 @@ async function generateReply(title, text) {
     try {
         console.log(`🧠 [AI] Generating stealth draft for: "${title.substring(0, 30)}..."`);
         
-        // ... existing code ...
         const prompt = `You are a cynical, pragmatic, and highly successful digital agency owner (~$50k MRR) scrolling Reddit on your phone. You despise marketing gurus and generic advice. A struggling agency owner just posted this:
         
         Title: ${title}
@@ -127,7 +131,7 @@ async function generateReply(title, text) {
         
         ANTI-AI GLOSSARY - YOU WILL BE PENALIZED IF YOU USE THESE WORDS:
         game-changer, lucrative, supercharge, dive in, landscape, crucial, paramount, elevate, delve, testament, realm, unlock, leverage, navigate, tapestry, robust.`;
-// ... existing code ...
+
         const response = await openai.chat.completions.create({
             model: "gpt-4o", 
             messages: [{ role: "user", content: prompt }],
@@ -144,7 +148,6 @@ async function generateReply(title, text) {
 }
 
 // --- Concurrent Subreddit Processor ---
-// --- Concurrent Subreddit Processor ---
 async function processSubreddit(sub, channel) {
     let subPostsChecked = 0;
     let subLeadsFound = 0;
@@ -153,14 +156,13 @@ async function processSubreddit(sub, channel) {
         const config = { 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
             httpsAgent: proxyAgent,
-            timeout: 15000 // 🛑 ADD THIS: Kill the request if it hangs for more than 15 seconds
+            timeout: 15000 
         };
 
         const response = await axios.get(`https://www.reddit.com/r/${sub}/new.json?limit=10`, config);
         const posts = response.data.data.children;
 
         for (const post of posts) {
-            // ... (keep all your existing loop logic exactly the same)
             const { title, selftext, permalink, created_utc, id, author } = post.data;
 
             if (processedPosts.has(id)) continue;
@@ -176,20 +178,25 @@ async function processSubreddit(sub, channel) {
             const hasContext = contextKeywords.some(kw => textToAnalyze.includes(kw));
 
             if (hasIntent && hasContext) {
-                console.log(`   🧠 [AI FILTER] Keyword match in r/${sub}. Verifying: "${title.substring(0, 30)}..."`);
+                console.log(`   🧠 [AI FILTER] Keyword match in r/${sub}. Scoring: "${title.substring(0, 30)}..."`);
                 
-                const isVerified = await verifyLeadWithAI(title, selftext);
+                // Fetch the 1-10 score and reasoning
+                const aiData = await verifyLeadWithAI(title, selftext);
 
-                if (isVerified) {
+                // STRICT FILTER: Only accept 8 or higher
+                if (aiData.score >= 8) {
                     subLeadsFound++;
-                    console.log(`   🚨 [VERIFIED LEAD] AI approved r/${sub}: "${title.substring(0, 40)}..."`);
+                    console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub}`);
 
                     const embed = new EmbedBuilder()
-                        .setColor(0x000000) 
-                        .setTitle(`🚨 Agency Lead Found: r/${sub}`)
+                        .setColor(0x00FF00) // Changed to Green for high-quality verified leads
+                        .setTitle(`🎯 Target Lead Found: r/${sub} (Score: ${aiData.score}/10)`)
                         .setURL(`https://reddit.com${permalink}`)
                         .setAuthor({ name: `u/${author}` })
-                        .addFields({ name: 'Title', value: title.substring(0, 256) })
+                        .addFields(
+                            { name: 'Title', value: title.substring(0, 256) },
+                            { name: 'AI Reasoning', value: `*${aiData.reason}*` } // Shows why it passed
+                        )
                         .setDescription(selftext ? selftext.substring(0, 300) + '...' : '*[No body text]*')
                         .setFooter({ text: `Posted ${Math.floor(postAgeMins)} mins ago` });
 
@@ -210,7 +217,7 @@ async function processSubreddit(sub, channel) {
                         components: [row] 
                     });
                 } else {
-                    console.log(`   🗑️ [REJECTED] AI filtered out lead from r/${sub}.`);
+                    console.log(`   🗑️ [REJECTED] Score ${aiData.score}/10. Not high enough intent.`);
                 }
             }
         }
@@ -219,7 +226,6 @@ async function processSubreddit(sub, channel) {
         return { subPostsChecked, subLeadsFound };
         
     } catch (err) {
-        // Now if a proxy hangs, it will throw a timeout error here instead of freezing the whole app
         console.error(`   ❌ [PROXY ERROR] r/${sub}: ${err.message}`);
         return { subPostsChecked: 0, subLeadsFound: 0 };
     }
@@ -248,21 +254,17 @@ async function scanReddit() {
     let totalLeadsFound = 0;
     const BATCH_SIZE = 5;
 
-    // Process subreddits in parallel batches of 5
     for (let i = 0; i < subreddits.length; i += BATCH_SIZE) {
         const batch = subreddits.slice(i, i + BATCH_SIZE);
         console.log(`📥 [SCRAPER] Fetching batch concurrently: ${batch.join(', ')}...`);
         
-        // Fire 5 proxy requests simultaneously
         const batchResults = await Promise.all(batch.map(sub => processSubreddit(sub, channel)));
 
-        // Accumulate statistics
         for (const res of batchResults) {
             totalNewPostsChecked += res.subPostsChecked;
             totalLeadsFound += res.subLeadsFound;
         }
 
-        // Brief cool-down between batches to protect API limits
         await new Promise(resolve => setTimeout(resolve, 2500));
     }
 
