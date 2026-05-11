@@ -27,7 +27,7 @@ const processedPosts = new Set();
 // SignalQub Target Subreddits (Cleaned & Deduplicated)
 const subreddits = [
     "10xfreelancing", "agency", "agencygrowthhacks", "agencynewbies", 
-    "coldemail", "content_marketing", "contentmarketing", "css", 
+    "coldemail", "content_marketing", "contentmarketing", 
     "digital_marketing", "digitalmarketing", "digitalmarketinghack",
     "emailmarketing", "emailmarketingnow", "entrepreneur", 
     "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance",  "freelancers", "freelancing", "googlemybusiness", 
@@ -164,7 +164,7 @@ async function processSubreddit(sub, channel) {
             timeout: 15000 
         };
 
-        const response = await axios.get(`https://www.reddit.com/r/${sub}/new.json?limit=10`, config);
+        const response = await axios.get(`https://www.reddit.com/r/${sub}/new.json?limit=5`, config);
         const posts = response.data.data.children;
 
         for (const post of posts) {
