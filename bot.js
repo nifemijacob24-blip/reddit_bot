@@ -34,7 +34,7 @@ const subreddits = [
     "growthhacking", "instagrammarketing", "leadgeneration", 
     "localseo", "marketing", "marketinggeek", "marketinghelp", 
     "marketingmentor", "microsaas", "onlinecourses", "prowordpress", 
-    "seo", "seo_digital_marketing", "sideproject", "smma", "socialmedia", 
+    "seo", "seo_digital_marketing", "smma", "socialmedia", 
     "socialmediamanagers", "socialmediamarketing", "upwork", "web_design", 
     "web_development", "webdesign", "webdev", "wordpress"
 ];
@@ -45,6 +45,7 @@ const contextKeywords = ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold out
 
 // --- AI Gatekeeper Filter (Upgraded to 1-10 Scoring) ---
 // --- AI Gatekeeper Filter (Upgraded Strict Intent Scoring) ---
+// --- AI Gatekeeper Filter (Anti-SaaS Founder Update) ---
 async function verifyLeadWithAI(title, text) {
     try {
         const prompt = `You are a ruthless, highly analytical Chief Revenue Officer qualifying leads for a B2B marketing tool called SignalQub.
@@ -57,14 +58,14 @@ async function verifyLeadWithAI(title, text) {
         Body: ${text.substring(0, 500)}
         
         CRITICAL SCORING RULES:
-        - 1-4 (REJECT): The post is about fulfillment, operations, or managing existing clients (e.g., managing GMB, running ads, hiring media buyers, client churn, software tools for content). Or it is B2C.
+        - 1-4 (REJECT): The poster is a developer/founder building their own SaaS tool, validating an app, asking for feedback on a product, or promoting a competitor. OR the post is about fulfillment, operations, or managing existing clients.
         - 5-7 (MAYBE): Relevant industry, but they aren't explicitly expressing pain about lead generation.
         - 8-10 (PERFECT): High intent agency owner/freelancer actively struggling to ACQUIRE clients (e.g., cold email going to spam, zero replies, bad lead lists, Apollo isn't working, cold calling sucks).
         
         Return ONLY a JSON object: {"score": 8, "reason": "brief 1-sentence explanation"}`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini", 
+            model: "gpt-4", 
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1, 
             response_format: { type: "json_object" }
