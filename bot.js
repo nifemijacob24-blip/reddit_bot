@@ -122,6 +122,8 @@ async function generateReply(title, text) {
         4. THE EXECUTION: End with exactly how to use that data (e.g., "Take a screenshot of their broken site and send it...").
 
         CRITICAL REDDIT RULES:
+        - No EM DASHES
+        - KEEP IT SHORT LIKE 3-4 LINES
         - CONTEXT IS KING: Adapt the first paragraph to THEIR specific post. Do not rant about generic lead lists if they are asking about sales calls.
         - NO GREETINGS, SIGN-OFFS, OR AGREEMENT PHRASES. Never start with "I agree," "You hit the nail on the head," or "Bro." Just start typing the first raw thought.
         - NEVER capitalize "signalqub". Keep it strictly lowercase.
