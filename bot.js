@@ -85,7 +85,7 @@ async function generateSummary(title, text) {
         TASK: Write a blunt, 1-sentence summary of the user's exact lead generation or marketing problem. Do not offer solutions.`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4-mini", 
+            model: "gpt-4o-mini", 
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3
         });
