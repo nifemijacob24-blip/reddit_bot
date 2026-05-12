@@ -46,6 +46,7 @@ const contextKeywords = ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold out
 // --- AI Gatekeeper Filter (Upgraded to 1-10 Scoring) ---
 // --- AI Gatekeeper Filter (Upgraded Strict Intent Scoring) ---
 // --- AI Gatekeeper Filter (Anti-SaaS Founder Update) ---
+// --- AI Gatekeeper Filter (Crash-Proof JSON Update) ---
 async function verifyLeadWithAI(title, text) {
     try {
         const prompt = `You are a ruthless, highly analytical Chief Revenue Officer qualifying leads for a B2B marketing tool called SignalQub.
@@ -62,16 +63,25 @@ async function verifyLeadWithAI(title, text) {
         - 5-7 (MAYBE): Relevant industry, but they aren't explicitly expressing pain about lead generation.
         - 8-10 (PERFECT): High intent agency owner/freelancer actively struggling to ACQUIRE clients (e.g., cold email going to spam, zero replies, bad lead lists, Apollo isn't working, cold calling sucks).
         
-        Return ONLY a JSON object: {"score": 8, "reason": "brief 1-sentence explanation"}`;
+        Return ONLY a raw JSON object. Do not use markdown formatting or backticks.
+        Example: {"score": 8, "reason": "brief 1-sentence explanation"}`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4", 
+            model: "gpt-4o", // The true modern flagship model
             messages: [{ role: "user", content: prompt }],
-            temperature: 0.1, 
-            response_format: { type: "json_object" }
+            temperature: 0.1
+            // 🛑 response_format line completely removed to bypass API errors
         });
         
-        const result = JSON.parse(response.choices[0].message.content.trim());
+        // Strip out any accidental markdown formatting (like ```json ... ```) just in case
+        let rawContent = response.choices[0].message.content.trim();
+        if (rawContent.startsWith('```json')) {
+            rawContent = rawContent.replace(/^```json/, '').replace(/```$/, '').trim();
+        } else if (rawContent.startsWith('```')) {
+            rawContent = rawContent.replace(/^```/, '').replace(/```$/, '').trim();
+        }
+        
+        const result = JSON.parse(rawContent);
         return {
             score: parseInt(result.score) || 0,
             reason: result.reason || "No reason provided."
