@@ -15,7 +15,7 @@ const discord = new Client({
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- BRIGHT DATA PROXY SETUP ---
-const proxyUrl = `http://${process.env.BRD_USERNAME}:${process.env.BRD_PASSWORD}@${process.env.BRD_HOST}:${process.env.BRD_PORT}`;
+const proxyUrl = `http://a9c1b10088e69061:Wqra64M7heSFjQYT@res.proxy-seller.com:10000`;
 const proxyAgent = new HttpsProxyAgent(proxyUrl, {
     rejectUnauthorized: false 
 });
