@@ -15,7 +15,7 @@ const discord = new Client({
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- PROXY SETUP ---
-const proxyUrl = `http://a9c1b10088e69061:Wqra64M7heSFjQYT@res.proxy-seller.com:10000`;
+const proxyUrl = `http://d73e5fb7b2282a4e:mbyv6naTVt8ZI0df@res.proxy-seller.com:10000`;
 const proxyAgent = new HttpsProxyAgent(proxyUrl, {
     rejectUnauthorized: false 
 });
@@ -159,21 +159,24 @@ async function processSubreddit(sub, channel) {
 
     try {
         // 🚨 REDDIT BYPASS: Specific headers and Proxy False flag applied here
+        // 🚨 REDDIT BYPASS: Mimic a real Chrome browser on a residential network
         const config = {
             httpsAgent: proxyAgent,
             httpAgent: proxyAgent,
-            proxy: false, // Critical: Forces Axios to use the HttpsProxyAgent correctly
+            proxy: false, 
             timeout: 15000,
             headers: {
-                'User-Agent': 'web:com.sublurker.scraper:v1.0.0 (by /u/JacobNifemi)',
-                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
-                'Cache-Control': 'no-cache'
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
             }
         };
 
-        const response = await axios.get(`https://www.reddit.com/r/${sub}/new.json?limit=5`, config);
-        
+        // 🚨 CRITICAL FIX: Use old.reddit.com instead of www.reddit.com
+        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.json?limit=5`, config);
         // 🛡️ Safely check if Reddit actually gave us the JSON structure
         if (!response.data || !response.data.data || !response.data.data.children) {
             console.log(`  ⚠️ [WARNING] r/${sub} did not return valid JSON. Skipping.`);
