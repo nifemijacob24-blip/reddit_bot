@@ -14,7 +14,7 @@ const discord = new Client({
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// --- BRIGHT DATA PROXY SETUP ---
+// --- PROXY SETUP ---
 const proxyUrl = `http://a9c1b10088e69061:Wqra64M7heSFjQYT@res.proxy-seller.com:10000`;
 const proxyAgent = new HttpsProxyAgent(proxyUrl, {
     rejectUnauthorized: false 
@@ -43,10 +43,6 @@ const subreddits = [
 const intentKeywords = ['mettings','bounce rate','cold call','no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes too much time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam','leads', 'local'];
 const contextKeywords = ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'];
 
-// --- AI Gatekeeper Filter (Upgraded to 1-10 Scoring) ---
-// --- AI Gatekeeper Filter (Upgraded Strict Intent Scoring) ---
-// --- AI Gatekeeper Filter (Anti-SaaS Founder Update) ---
-// --- AI Gatekeeper Filter (Crash-Proof JSON Update) ---
 async function verifyLeadWithAI(title, text) {
     try {
         const prompt = `You are a ruthless, highly analytical Chief Revenue Officer qualifying leads for a B2B marketing tool called SignalQub.
@@ -67,13 +63,11 @@ async function verifyLeadWithAI(title, text) {
         Example: {"score": 8, "reason": "brief 1-sentence explanation"}`;
 
         const response = await openai.chat.completions.create({
-            model: "gpt-4o", // The true modern flagship model
+            model: "gpt-4o",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1
-            // 🛑 response_format line completely removed to bypass API errors
         });
         
-        // Strip out any accidental markdown formatting (like ```json ... ```) just in case
         let rawContent = response.choices[0].message.content.trim();
         if (rawContent.startsWith('```json')) {
             rawContent = rawContent.replace(/^```json/, '').replace(/```$/, '').trim();
@@ -92,7 +86,6 @@ async function verifyLeadWithAI(title, text) {
     }
 }
 
-// --- AI Function: Reply Only (Smarter Pivot) ---
 async function generateReply(title, text) {
     try {
         console.log(`🧠 [AI] Generating stealth draft for: "${title.substring(0, 30)}..."`);
@@ -137,7 +130,6 @@ async function generateReply(title, text) {
     }
 }
 
-// --- AI Function: Summary Only ---
 async function generateSummary(title, text) {
     try {
         console.log(`🧠 [AI] Generating summary for: "${title.substring(0, 30)}..."`);
@@ -160,22 +152,34 @@ async function generateSummary(title, text) {
     }
 }
 
-// --- AI Function: Reply Only ---
-
-
 // --- Concurrent Subreddit Processor ---
 async function processSubreddit(sub, channel) {
     let subPostsChecked = 0;
     let subLeadsFound = 0;
 
     try {
-        const config = { 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        // 🚨 REDDIT BYPASS: Specific headers and Proxy False flag applied here
+        const config = {
             httpsAgent: proxyAgent,
-            timeout: 15000 
+            httpAgent: proxyAgent,
+            proxy: false, // Critical: Forces Axios to use the HttpsProxyAgent correctly
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'web:com.sublurker.scraper:v1.0.0 (by /u/JacobNifemi)',
+                'Accept': 'application/json',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache'
+            }
         };
 
         const response = await axios.get(`https://www.reddit.com/r/${sub}/new.json?limit=5`, config);
+        
+        // 🛡️ Safely check if Reddit actually gave us the JSON structure
+        if (!response.data || !response.data.data || !response.data.data.children) {
+            console.log(`  ⚠️ [WARNING] r/${sub} did not return valid JSON. Skipping.`);
+            return { subPostsChecked: 0, subLeadsFound: 0 };
+        }
+
         const posts = response.data.data.children;
 
         for (const post of posts) {
@@ -196,22 +200,20 @@ async function processSubreddit(sub, channel) {
             if (hasIntent && hasContext) {
                 console.log(`   🧠 [AI FILTER] Keyword match in r/${sub}. Scoring: "${title.substring(0, 30)}..."`);
                 
-                // Fetch the 1-10 score and reasoning
                 const aiData = await verifyLeadWithAI(title, selftext);
 
-                // STRICT FILTER: Only accept 8 or higher
                 if (aiData.score >= 8) {
                     subLeadsFound++;
                     console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub}`);
 
                     const embed = new EmbedBuilder()
-                        .setColor(0x00FF00) // Changed to Green for high-quality verified leads
+                        .setColor(0x00FF00)
                         .setTitle(`🎯 Target Lead Found: r/${sub} (Score: ${aiData.score}/10)`)
                         .setURL(`https://reddit.com${permalink}`)
                         .setAuthor({ name: `u/${author}` })
                         .addFields(
                             { name: 'Title', value: title.substring(0, 256) },
-                            { name: 'AI Reasoning', value: `*${aiData.reason}*` } // Shows why it passed
+                            { name: 'AI Reasoning', value: `*${aiData.reason}*` }
                         )
                         .setDescription(selftext ? selftext.substring(0, 300) + '...' : '*[No body text]*')
                         .setFooter({ text: `Posted ${Math.floor(postAgeMins)} mins ago` });
@@ -242,7 +244,8 @@ async function processSubreddit(sub, channel) {
         return { subPostsChecked, subLeadsFound };
         
     } catch (err) {
-        console.error(`   ❌ [PROXY ERROR] r/${sub}: ${err.message}`);
+        const status = err.response ? err.response.status : err.code;
+        console.error(`   ❌ [PROXY ERROR] r/${sub}: Request failed with status ${status}`);
         return { subPostsChecked: 0, subLeadsFound: 0 };
     }
 }
