@@ -1,42 +1,39 @@
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import Parser from 'rss-parser';
 
-const proxyUrl = `http://d1d24c034f1c1f44:7VjUCbvNyhtEqMKJ@res.proxy-seller.com:10000`;
+const parser = new Parser();
+
+// Drop your Decodo proxy string here
+const proxyUrl = `http://spy91wmg1u:m5j9OzYox8pIv0Jn+w@gate.decodo.com:7000`; 
 const proxyAgent = new HttpsProxyAgent(proxyUrl, { rejectUnauthorized: false });
 
-async function checkProxy() {
+async function testRedditRSS() {
     try {
-        // 1. Check what IP and ASN the proxy is actually showing to the world
-        const ipCheck = await axios.get('https://ipinfo.io/json', {
+        console.log("📡 Bypassing API: Fetching Reddit RSS Feed via Proxy...");
+        
+        const response = await axios.get('https://old.reddit.com/r/freelance/new.rss', {
             httpsAgent: proxyAgent,
             httpAgent: proxyAgent,
-            proxy: false
-        });
-        console.log("🌍 Proxy Live IP Info:");
-        console.log(`   - IP: ${ipCheck.data.ip}`);
-        console.log(`   - Org/ASN: ${ipCheck.data.org}`); // If this says a data center company instead of a residential ISP, it's fake residential.
-        console.log(`   - Country: ${ipCheck.data.country}\n`);
-
-        // 2. Test a direct call to a single subreddit
-        console.log("📡 Testing connection to Reddit...");
-        const redditCheck = await axios.get('https://old.reddit.com/r/freelance/new.json?limit=1', {
-            httpsAgent: proxyAgent,
-            httpAgent: proxyAgent,
-            proxy: false,
+            proxy: false, // Prevents Axios conflicts
+            timeout: 15000,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                // Mimic a standard Chrome browser for RSS fetching
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'application/rss+xml, application/xml, text/xml'
             }
         });
+
+        // Convert the raw XML into a clean JSON object
+        const feed = await parser.parseString(response.data);
         
-        if(redditCheck.status === 200) {
-            console.log("✅ SUCCESS! The proxy successfully read Reddit.");
-        }
+        console.log(`✅ FIREWALL BYPASSED. RSS SUCCESS!`);
+        console.log(`   Sample Post Title: "${feed.items[0].title}"`);
+        console.log(`   Sample Content: "${feed.items[0].contentSnippet.substring(0, 50)}..."`);
+        
     } catch (err) {
-        console.log(`❌ PROXY FAILED: Status ${err.response?.status || err.code}`);
-        if (err.response?.status === 403) {
-            console.log("🚨 Verdict: The IP is burned. Reddit's firewall has completely blacklisted this proxy provider.");
-        }
+        console.error(`❌ RSS FAILED: ${err.response ? err.response.status : err.message}`);
     }
 }
 
-checkProxy();
+testRedditRSS();

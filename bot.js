@@ -1,7 +1,11 @@
 import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import OpenAI from 'openai';
 import axios from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import 'dotenv/config';
+
+// 🛑 ADD THIS LINE TO FIX THE BRIGHT DATA SSL ERROR 🛑
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 // --- Configuration ---
 const discord = new Client({
@@ -9,6 +13,12 @@ const discord = new Client({
 });
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// --- PROXY SETUP ---
+const proxyUrl = `http://spy91wmg1u:m5j9OzYox8pIv0Jn+w:gate.decodo.com:7000`;
+const proxyAgent = new HttpsProxyAgent(proxyUrl, {
+    rejectUnauthorized: false 
+});
 
 // State Management
 let isScraping = true;
@@ -142,20 +152,32 @@ async function generateSummary(title, text) {
     }
 }
 
-// --- Concurrent Subreddit Processor (SCRAPER API EDITION) ---
+// --- Concurrent Subreddit Processor ---
 async function processSubreddit(sub, channel) {
     let subPostsChecked = 0;
     let subLeadsFound = 0;
 
     try {
-        // 🚨 REDDIT BYPASS: Send the URL directly to ScraperAPI
-        const targetUrl = `https://old.reddit.com/r/${sub}/new.json?limit=5`;
-        const scraperApiUrl = `http://api.scraperapi.com/?api_key=${process.env.SCRAPER_API_KEY}&url=${encodeURIComponent(targetUrl)}`;
+        // 🚨 REDDIT BYPASS: Specific headers and Proxy False flag applied here
+        // 🚨 REDDIT BYPASS: Mimic a real Chrome browser on a residential network
+        const config = {
+            httpsAgent: proxyAgent,
+            httpAgent: proxyAgent,
+            proxy: false, 
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        };
 
-        const response = await axios.get(scraperApiUrl, {
-            timeout: 30000 // ScraperAPI can take a few extra seconds to find an unblocked IP
-        });
-        
+        // 🚨 CRITICAL FIX: Use old.reddit.com instead of www.reddit.com
+        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=5`, config);
+        // 🛡️ Safely check if Reddit actually gave us the JSON structure
         if (!response.data || !response.data.data || !response.data.data.children) {
             console.log(`  ⚠️ [WARNING] r/${sub} did not return valid JSON. Skipping.`);
             return { subPostsChecked: 0, subLeadsFound: 0 };
@@ -215,35 +237,32 @@ async function processSubreddit(sub, channel) {
                         embeds: [embed], 
                         components: [row] 
                     });
+                } else {
+                    console.log(`   🗑️ [REJECTED] Score ${aiData.score}/10. Not high enough intent.`);
                 }
             }
         }
         
-        console.log(`   ✔️ r/${sub} complete. Checked posts.`);
+        console.log(`   ✔️ r/${sub} complete. Found ${subLeadsFound} verified leads.`);
         return { subPostsChecked, subLeadsFound };
         
     } catch (err) {
         const status = err.response ? err.response.status : err.code;
-        console.error(`   ❌ [SCRAPER API ERROR] r/${sub}: Request failed with status ${status}`);
+        console.error(`   ❌ [PROXY ERROR] r/${sub}: Request failed with status ${status}`);
         return { subPostsChecked: 0, subLeadsFound: 0 };
     }
 }
 
-// --- Sequential Scraper Engine ---
+// --- Fast Scraper Engine ---
 async function scanReddit() {
     if (!isScraping) {
         console.log('⏸️ [ENGINE] Scanner is paused. Awaiting !toggle command.');
         return;
     }
 
-    if (!process.env.SCRAPER_API_KEY) {
-        console.log('🚨 [ERROR] Missing SCRAPER_API_KEY in .env file!');
-        return;
-    }
-
     console.log('\n=============================================');
-    console.log('🔍 [ENGINE] Initiating Sequential Scan Cycle...');
-    console.log(`📡 [API] Routing traffic securely through ScraperAPI`);
+    console.log('🔍 [ENGINE] Initiating 10-minute BATCH scan cycle...');
+    console.log(`📡 [PROXY] Routing traffic through Bright Data network`);
     console.log('=============================================\n');
 
     let channel;
@@ -255,18 +274,20 @@ async function scanReddit() {
 
     let totalNewPostsChecked = 0;
     let totalLeadsFound = 0;
+    const BATCH_SIZE = 5;
 
-    for (const sub of subreddits) {
-        console.log(`📥 [SCRAPER] Fetching r/${sub}...`);
+    for (let i = 0; i < subreddits.length; i += BATCH_SIZE) {
+        const batch = subreddits.slice(i, i + BATCH_SIZE);
+        console.log(`📥 [SCRAPER] Fetching batch concurrently: ${batch.join(', ')}...`);
         
-        const res = await processSubreddit(sub, channel);
-        
-        totalNewPostsChecked += res.subPostsChecked;
-        totalLeadsFound += res.subLeadsFound;
+        const batchResults = await Promise.all(batch.map(sub => processSubreddit(sub, channel)));
 
-        // ScraperAPI free tier allows 5 concurrent requests, but running sequentially 
-        // with a tiny delay ensures you never hit their rate limits.
-        await new Promise(resolve => setTimeout(resolve, 500));
+        for (const res of batchResults) {
+            totalNewPostsChecked += res.subPostsChecked;
+            totalLeadsFound += res.subLeadsFound;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2500));
     }
 
     if (processedPosts.size > 5000) processedPosts.clear();
