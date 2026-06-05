@@ -15,7 +15,7 @@ const discord = new Client({
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- PROXY SETUP ---
-const proxyUrl = `http://spy91wmg1u:m5j9OzYox8pIv0Jn+w:gate.decodo.com:7000`;
+const proxyUrl = `http://spy91wmg1u:m5j9OzYox8pIv0Jn+w@gate.decodo.com:7000`;
 const proxyAgent = new HttpsProxyAgent(proxyUrl, {
     rejectUnauthorized: false 
 });
