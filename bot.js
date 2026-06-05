@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilde
 import OpenAI from 'openai';
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import Parser from 'rss-parser';
 import 'dotenv/config';
 
 // 🛑 ADD THIS LINE TO FIX THE BRIGHT DATA SSL ERROR 🛑
@@ -13,8 +14,10 @@ const discord = new Client({
 });
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const parser = new Parser(); // Initialize RSS Parser
 
 // --- PROXY SETUP ---
+// FIXED: Replaced the second colon with an '@' symbol
 const proxyUrl = `http://spy91wmg1u:m5j9OzYox8pIv0Jn+w@gate.decodo.com:7000`;
 const proxyAgent = new HttpsProxyAgent(proxyUrl, {
     rejectUnauthorized: false 
@@ -24,16 +27,16 @@ const proxyAgent = new HttpsProxyAgent(proxyUrl, {
 let isScraping = true;
 const processedPosts = new Set();
 
-// SignalQub Target Subreddits (Cleaned & Deduplicated)
+// SignalQub Target Subreddits (Cleaned & Deduplicated & 404s Removed)
 const subreddits = [
     "10xfreelancing", "agency", "agencygrowthhacks", "agencynewbies", 
-    "coldemail", "content_marketing", "contentmarketing", 
+    "coldemail", "content_marketing", 
     "digital_marketing", "digitalmarketing", "digitalmarketinghack",
     "emailmarketing", "emailmarketingnow", "entrepreneur", 
     "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance",  "freelancers", "freelancing", "googlemybusiness", 
     "growthhacking", "instagrammarketing", "leadgeneration", 
     "localseo", "marketing", "marketinggeek", "marketinghelp", 
-    "marketingmentor", "microsaas", "onlinecourses", "prowordpress", 
+    "microsaas", "onlinecourses", "prowordpress", 
     "seo", "seo_digital_marketing", "smma", "socialmedia", 
     "socialmediamanagers", "socialmediamarketing", "upwork", "web_design", 
     "web_development", "webdesign", "webdev", "wordpress"
@@ -158,8 +161,6 @@ async function processSubreddit(sub, channel) {
     let subLeadsFound = 0;
 
     try {
-        // 🚨 REDDIT BYPASS: Specific headers and Proxy False flag applied here
-        // 🚨 REDDIT BYPASS: Mimic a real Chrome browser on a residential network
         const config = {
             httpsAgent: proxyAgent,
             httpAgent: proxyAgent,
@@ -167,7 +168,7 @@ async function processSubreddit(sub, channel) {
             timeout: 15000,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept': 'application/json, text/plain, */*',
+                'Accept': 'application/rss+xml, application/xml, text/xml, */*',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Connection': 'keep-alive',
                 'Cache-Control': 'no-cache',
@@ -175,24 +176,37 @@ async function processSubreddit(sub, channel) {
             }
         };
 
-        // 🚨 CRITICAL FIX: Use old.reddit.com instead of www.reddit.com
         const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=5`, config);
-        // 🛡️ Safely check if Reddit actually gave us the JSON structure
-        if (!response.data || !response.data.data || !response.data.data.children) {
-            console.log(`  ⚠️ [WARNING] r/${sub} did not return valid JSON. Skipping.`);
+        
+        let feed;
+        try {
+            // Parse the raw XML into an object
+            feed = await parser.parseString(response.data);
+        } catch (parseError) {
+            console.log(`  ⚠️ [WARNING] r/${sub} returned invalid XML. Skipping.`);
             return { subPostsChecked: 0, subLeadsFound: 0 };
         }
 
-        const posts = response.data.data.children;
+        const posts = feed.items;
 
         for (const post of posts) {
-            const { title, selftext, permalink, created_utc, id, author } = post.data;
+            // RSS Data Mapping
+            const title = post.title || '';
+            const selftext = post.contentSnippet || ''; // rss-parser automatically strips HTML
+            const permalink = post.link || '';
+            const id = post.id || permalink;
+            
+            // Clean up author string (Reddit outputs /u/username)
+            let author = post.author || 'Unknown';
+            if (author.startsWith('/u/')) author = author.substring(3);
 
             if (processedPosts.has(id)) continue;
             processedPosts.add(id);
             subPostsChecked++;
 
+            const created_utc = new Date(post.isoDate || post.pubDate).getTime() / 1000;
             const postAgeMins = (Math.floor(Date.now() / 1000) - created_utc) / 60;
+            
             if (postAgeMins > 15) continue; 
 
             const textToAnalyze = `${title} ${selftext}`.toLowerCase();
@@ -212,7 +226,7 @@ async function processSubreddit(sub, channel) {
                     const embed = new EmbedBuilder()
                         .setColor(0x00FF00)
                         .setTitle(`🎯 Target Lead Found: r/${sub} (Score: ${aiData.score}/10)`)
-                        .setURL(`https://reddit.com${permalink}`)
+                        .setURL(permalink) // RSS provides absolute links natively
                         .setAuthor({ name: `u/${author}` })
                         .addFields(
                             { name: 'Title', value: title.substring(0, 256) },
@@ -301,7 +315,8 @@ async function scanReddit() {
 }
 
 // --- Discord Listeners ---
-discord.once('clientReady', () => {
+// FIXED: Event changed to 'ready' for Discord.js v14
+discord.once('ready', () => {
     console.log(`\n🤖 Discord Bot online as ${discord.user.tag}`);
     console.log(`🟢 System is primed and ready. Scraping is currently set to: ${isScraping ? 'ON' : 'OFF'}\n`);
     
