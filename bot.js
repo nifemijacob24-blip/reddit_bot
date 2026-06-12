@@ -323,7 +323,7 @@ discord.once('clientReady', () => {
     
     setInterval(scanReddit, 10 * 60 * 1000); 
     scanReddit(); 
-});s
+});
 
 discord.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('!')) return;
