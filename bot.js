@@ -34,7 +34,7 @@ const subreddits = [
     "digital_marketing", "digitalmarketing", "digitalmarketinghack",
     "emailmarketing", "emailmarketingnow", "entrepreneur", 
     "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance",  "freelancers", "freelancing", "googlemybusiness", 
-    "growthhacking", "instagrammarketing", , 
+    "growthhacking", "instagrammarketing", 
     "localseo", "marketing", "marketinggeek", 
     "microsaas", "onlinecourses", "prowordpress", 
     "seo", "seo_digital_marketing", "smma", "socialmedia", 
