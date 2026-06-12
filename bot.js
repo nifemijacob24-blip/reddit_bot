@@ -316,13 +316,14 @@ async function scanReddit() {
 
 // --- Discord Listeners ---
 // FIXED: Event changed to 'ready' for Discord.js v14
-discord.once('ready', () => {
+// --- Discord Listeners ---
+discord.once('clientReady', () => {
     console.log(`\n🤖 Discord Bot online as ${discord.user.tag}`);
     console.log(`🟢 System is primed and ready. Scraping is currently set to: ${isScraping ? 'ON' : 'OFF'}\n`);
     
     setInterval(scanReddit, 10 * 60 * 1000); 
     scanReddit(); 
-});
+});s
 
 discord.on('messageCreate', async (message) => {
     if (message.author.bot || !message.content.startsWith('!')) return;
