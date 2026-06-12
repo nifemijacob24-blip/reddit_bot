@@ -32,7 +32,7 @@ const subreddits = [
     "10xfreelancing", "agency", "agencygrowthhacks", "agencynewbies", 
     "coldemail", "content_marketing", 
     "digital_marketing", "digitalmarketing", "digitalmarketinghack",
-    "emailmarketing", "emailmarketingnow", "entrepreneur", 
+    "emailmarketing", "emailmarketingnow", 
     "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance",  "freelancers", "freelancing", "googlemybusiness", 
     "growthhacking", "instagrammarketing", 
     "localseo", "marketing", "marketinggeek", 
