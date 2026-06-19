@@ -179,7 +179,7 @@ async function processSubreddit(sub, campaign, channel) {
         };
         // Adds the current millisecond timestamp to bypass proxy and Reddit CDN caching
         const cacheBuster = Date.now();
-        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=5&t=${cacheBuster}`, config);
+        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=20&t=${cacheBuster}`, config);
         let feed = await parser.parseString(response.data);
 
         for (const post of feed.items) {
@@ -290,16 +290,17 @@ async function scanReddit() {
     for (const [key, campaign] of Object.entries(CAMPAIGNS)) {
         console.log(`\n📦 Executing Campaign: ${campaign.name}`);
         
-        for (const sub of campaign.subreddits) {
-            console.log(`📥 [SCRAPER] Fetching: r/${sub}...`);
+        for (let i = 0; i < campaign.subreddits.length; i += BATCH_SIZE) {
+            const batch = campaign.subreddits.slice(i, i + BATCH_SIZE);
+            console.log(`📥 [SCRAPER] Fetching batch concurrently: ${batch.join(', ')}...`);
             
-            const res = await processSubreddit(sub, campaign, channel);
-            
-            totalNewPostsChecked += res.subPostsChecked;
-            totalLeadsFound += res.subLeadsFound;
-            
-            // 🛑 THE FIX: Force a 2-second delay between EVERY individual request
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            const batchResults = await Promise.all(batch.map(sub => processSubreddit(sub, campaign, channel)));
+
+            for (const res of batchResults) {
+                totalNewPostsChecked += res.subPostsChecked;
+                totalLeadsFound += res.subLeadsFound;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2500));
         }
     }
 
