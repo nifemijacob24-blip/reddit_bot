@@ -168,100 +168,124 @@ async function generateReply(campaignKey, title, text) {
 }
 
 // --- Concurrent Subreddit Processor ---
+// --- Concurrent Subreddit Processor ---
 async function processSubreddit(sub, campaign, channel) {
     let subPostsChecked = 0;
     let subLeadsFound = 0;
+    let retries = 3;      // Maximum number of retry attempts per subreddit
+    let backoffDelay = 3000; // Starting delay for backoff (3 seconds)
 
-    try {
-        const config = {
-            httpsAgent: proxyAgent, httpAgent: proxyAgent, proxy: false, timeout: 15000,
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
-        };
-        // Adds the current millisecond timestamp to bypass proxy and Reddit CDN caching
-        const cacheBuster = Date.now();
-        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=5&t=${cacheBuster}`, config);
-        let feed = await parser.parseString(response.data);
+    // 🛑 1. THE USER-AGENT FIX
+    // Reddit requires this format: <platform>:<app ID>:<version string> (by /u/<reddit username>)
+    // Replace 'YourRedditUsername' with an actual Reddit account name you own.
+    const customUserAgent = 'Node:reddit-lead-scanner:v1.0.0 (by /u/YourRedditUsername)';
 
-        for (const post of feed.items) {
-            const title = post.title || '';
-            const selftext = post.contentSnippet || '';
-            const permalink = post.link || '';
-            const id = post.id || permalink;
-            let author = (post.author || 'Unknown').replace('/u/', '');
+    while (retries > 0) {
+        try {
+            const config = {
+                httpsAgent: proxyAgent, 
+                httpAgent: proxyAgent, 
+                proxy: false, 
+                timeout: 15000,
+                headers: { 
+                    'User-Agent': customUserAgent,
+                    'Accept': 'application/rss+xml, application/xml, text/xml'
+                }
+            };
+            
+            // Removed ?t=${cacheBuster} as unfamiliar query params can trigger CDN blocks
+            const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=20`, config);
+            let feed = await parser.parseString(response.data);
 
-            if (processedPosts.has(id)) continue;
-            processedPosts.add(id);
-            subPostsChecked++;
+            for (const post of feed.items) {
+                const title = post.title || '';
+                const selftext = post.contentSnippet || '';
+                const permalink = post.link || '';
+                const id = post.id || permalink;
+                let author = (post.author || 'Unknown').replace('/u/', '');
 
-            const created_utc = new Date(post.isoDate || post.pubDate).getTime() / 1000;
-            const postAgeMins = (Math.floor(Date.now() / 1000) - created_utc) / 60;
-            if (postAgeMins > 15) continue; 
+                if (processedPosts.has(id)) continue;
+                processedPosts.add(id);
+                subPostsChecked++;
 
-            const textToAnalyze = `${title} ${selftext}`.toLowerCase();
-            const hasIntent = campaign.intentKeywords.some(kw => textToAnalyze.includes(kw));
-            const hasContext = campaign.contextKeywords.some(kw => textToAnalyze.includes(kw));
-
-            if (hasIntent && hasContext) {
-                console.log(`   🧠 [AI FILTER] Keyword match in r/${sub} for [${campaign.name}]`);
+                const created_utc = new Date(post.isoDate || post.pubDate).getTime() / 1000;
+                const postAgeMins = (Math.floor(Date.now() / 1000) - created_utc) / 60;
                 
-                const aiData = await verifyLeadWithAI(campaign, title, selftext);
+                // Allow up to 30 mins to account for RSS cache delays
+                if (postAgeMins > 30) continue; 
 
-                if (aiData.score >= 7) {
-                    subLeadsFound++;
-                    console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub} for ${campaign.name}`);
+                const textToAnalyze = `${title} ${selftext}`.toLowerCase();
+                const hasIntent = campaign.intentKeywords.some(kw => textToAnalyze.includes(kw));
+                const hasContext = campaign.contextKeywords.some(kw => textToAnalyze.includes(kw));
 
-                    const embed = new EmbedBuilder()
-                        .setColor(campaign.color)
-                        .setTitle(`🎯 [${campaign.name}] Target Found: r/${sub} (Score: ${aiData.score}/10)`)
-                        .setURL(permalink)
-                        .setAuthor({ name: `u/${author}` })
-                        .addFields(
-                            { name: 'Title', value: title.substring(0, 256) },
-                            { name: 'AI Reasoning', value: `*${aiData.reason}*` }
-                        )
-                        .setDescription(selftext ? selftext.substring(0, 300) + '...' : '*[No body text]*')
-                        .setFooter({ text: `Posted ${Math.floor(postAgeMins)} mins ago` });
-
-                    // Find the key (e.g. "SIGNALQUB") to attach to the button payload
-                    const campaignKey = Object.keys(CAMPAIGNS).find(key => CAMPAIGNS[key].name === campaign.name);
+                if (hasIntent && hasContext) {
+                    console.log(`   🧠 [AI FILTER] Keyword match in r/${sub} for [${campaign.name}]`);
                     
-                    // Shorten ID to avoid Discord's 100 char limit on customIds
-                    const shortId = Buffer.from(id).toString('base64').substring(0, 20);
+                    const aiData = await verifyLeadWithAI(campaign, title, selftext);
 
-                    const row = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`summary_${shortId}`)
-                            .setLabel('Get Summary')
-                            .setStyle(ButtonStyle.Secondary),
-                        new ButtonBuilder()
-                            .setCustomId(`reply_${campaignKey}_${shortId}`)
-                            .setLabel(`Draft ${campaign.name} Reply`)
-                            .setStyle(ButtonStyle.Primary)
-                    );
+                    if (aiData.score >= 7) {
+                        subLeadsFound++;
+                        console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub} for ${campaign.name}`);
 
-                    await channel.send({ 
-                        content: `**RAW_DATA_DO_NOT_DELETE**||${title}~~~${selftext.substring(0, 800)}||`, 
-                        embeds: [embed], 
-                        components: [row] 
-                    });
-                } else {
-                    console.log(`   🗑️ [REJECTED] Score ${aiData.score}/10. Not high enough intent.`);
+                        const embed = new EmbedBuilder()
+                            .setColor(campaign.color)
+                            .setTitle(`🎯 [${campaign.name}] Target Found: r/${sub} (Score: ${aiData.score}/10)`)
+                            .setURL(permalink)
+                            .setAuthor({ name: `u/${author}` })
+                            .addFields(
+                                { name: 'Title', value: title.substring(0, 256) },
+                                { name: 'AI Reasoning', value: `*${aiData.reason}*` }
+                            )
+                            .setDescription(selftext ? selftext.substring(0, 300) + '...' : '*[No body text]*')
+                            .setFooter({ text: `Posted ${Math.floor(postAgeMins)} mins ago` });
+
+                        const campaignKey = Object.keys(CAMPAIGNS).find(key => CAMPAIGNS[key].name === campaign.name);
+                        const shortId = Buffer.from(id).toString('base64').substring(0, 20);
+
+                        const row = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`summary_${shortId}`)
+                                .setLabel('Get Summary')
+                                .setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder()
+                                .setCustomId(`reply_${campaignKey}_${shortId}`)
+                                .setLabel(`Draft ${campaign.name} Reply`)
+                                .setStyle(ButtonStyle.Primary)
+                        );
+
+                        await channel.send({ 
+                            content: `**RAW_DATA_DO_NOT_DELETE**||${title}~~~${selftext.substring(0, 800)}||`, 
+                            embeds: [embed], 
+                            components: [row] 
+                        });
+                    } else {
+                        console.log(`   🗑️ [REJECTED] Score ${aiData.score}/10. Not high enough intent.`);
+                    }
                 }
             }
+            
+            // Break out of the while loop if the request was successful
+            break; 
+
+        } catch (err) {
+            // 🛑 2. THE EXPONENTIAL BACKOFF FIX
+            if (err.response && err.response.status === 429) {
+                retries--;
+                if (retries > 0) {
+                    console.log(`⚠️ [429 RATE LIMIT] r/${sub}. Retrying in ${backoffDelay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                    backoffDelay *= 2; // Double the wait time for the next attempt
+                } else {
+                    console.error(`❌ [REDDIT FETCH ERROR] r/${sub} failed after maximum retries.`);
+                }
+            } else {
+                console.error(`❌ [REDDIT FETCH ERROR] r/${sub}: ${err.message}`);
+                break; // If it's a 404 or network timeout, don't retry, just break
+            }
         }
-        return { subPostsChecked, subLeadsFound };
-    // INSIDE processSubreddit()
-
-    // ❌ CHANGE THIS:
-    // } catch (err) {
-    //     return { subPostsChecked: 0, subLeadsFound: 0 };
-    // }
-
-    // ✅ TO THIS:
-    } catch (err) {
-        console.error(`❌ [REDDIT FETCH ERROR] r/${sub}: ${err.message}`);
-        return { subPostsChecked: 0, subLeadsFound: 0 };
     }
+
+    return { subPostsChecked, subLeadsFound };
 }
 
 // --- Fast Scraper Engine ---
