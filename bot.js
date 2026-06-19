@@ -5,7 +5,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import Parser from 'rss-parser';
 import 'dotenv/config';
 
-// 🛑 ADD THIS LINE TO FIX THE BRIGHT DATA SSL ERROR 🛑
+// 🛑 FIX THE BRIGHT DATA/DECODO SSL ERROR 🛑
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 // --- Configuration ---
@@ -14,11 +14,16 @@ const discord = new Client({
 });
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const parser = new Parser(); // Initialize RSS Parser
+const parser = new Parser(); 
 
 // --- PROXY SETUP ---
-// FIXED: Replaced the second colon with an '@' symbol
-const proxyUrl = `http://spy91wmg1u:m5j9OzYox8pIv0Jn+w@gate.decodo.com:7000`;
+const proxyUrl = process.env.DECODO_PROXY_URL;
+
+if (!proxyUrl) {
+    console.error("❌ FATAL: DECODO_PROXY_URL is missing from the environment variables.");
+    process.exit(1); 
+}
+
 const proxyAgent = new HttpsProxyAgent(proxyUrl, {
     rejectUnauthorized: false 
 });
@@ -27,96 +32,118 @@ const proxyAgent = new HttpsProxyAgent(proxyUrl, {
 let isScraping = true;
 const processedPosts = new Set();
 
-// SignalQub Target Subreddits (Cleaned & Deduplicated & 404s Removed)
-const subreddits = [
-    "10xfreelancing", "agency", "agencygrowthhacks", "agencynewbies", 
-    "coldemail", "content_marketing", 
-    "digital_marketing", "digitalmarketing", "digitalmarketinghack",
-    "emailmarketing", "emailmarketingnow", 
-    "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "freelance",  "freelancers", "freelancing", "googlemybusiness", 
-    "growthhacking", "instagrammarketing", 
-    "localseo", "marketing", "marketinggeek", 
-    "microsaas", "onlinecourses", "prowordpress", 
-    "seo", "seo_digital_marketing", "smma", "socialmedia", 
-    "socialmediamanagers", "socialmediamarketing", "upwork", "web_design", 
-    "web_development", "webdesign", "webdev", "wordpress"
-];
+// --- CAMPAIGN CONFIGURATIONS ---
+const CAMPAIGNS = {
+    SIGNALQUB: {
+        name: "SignalQub",
+        color: 0x00FF00, // Green
+        subreddits: [
+            "10xfreelancing", "agency", "agencygrowthhacks", "agencynewbies", "coldemail", "content_marketing", 
+            "digital_marketing", "digitalmarketing", "digitalmarketinghack", "emailmarketing", "emailmarketingnow", 
+            "freelance", "freelancers", "freelancing", "googlemybusiness", "growthhacking", "localseo", "marketing", 
+            "microsaas", "seo", "smma", "socialmediamanagers", "socialmediamarketing", "upwork", "web_design", "webdev"
+        ],
+        intentKeywords: ['mettings', 'bounce rate', 'cold call', 'no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes too much time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam', 'leads', 'local'],
+        contextKeywords: ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'],
+        qualifyPrompt: `You are a ruthless Chief Revenue Officer qualifying leads for a B2B tool called SignalQub (helps agencies find local businesses failing technical audits).
+        Rate 1-10.
+        1-4 (REJECT): Building their own SaaS, asking for app feedback, or managing existing clients.
+        8-10 (PERFECT): Agency owner/freelancer actively struggling to ACQUIRE clients (cold email spam, zero replies, bad lists).`,
+        replyPrompt: `You are a cynical, pragmatic agency owner (~$50k MRR). 
+        1. THE DIRECT HIT: Validate their exact prospecting problem.
+        2. THE PIVOT: Explain the root cause is pitching generic businesses without finding pain points first.
+        3. THE RELUCTANT DROP: Mention you use "signalqub" to pull lists of local businesses actively failing technical checks.
+        4. THE EXECUTION: Tell them to screenshot the broken site and send it.
+        Keep it short (3-4 lines). No greetings. Keep "signalqub" lowercase.`
+    },
+    ETSY_GUIDE: {
+        name: "EtsyWithoutAds",
+        color: 0x3498DB, // Blue
+        subreddits: ["sidehustle", "makemoney", "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "passive_income", "workonline",
+"OnlineIncomeHustle","thesidehustle","passiveincome","EarnExtraIncome"],
+        intentKeywords: ['need extra cash', 'side hustle ideas', 'how to make money', 'broke', 'passive income', 'zero dollars', 'start online', 'first business'],
+        contextKeywords: ['online', 'home', 'hustle', 'beginner', 'laptop', 'free', 'no capital'],
+        qualifyPrompt: `You are scoring leads for a free guide on how to build an Etsy shop with zero ad spend.
+        Rate 1-10.
+        1-4 (REJECT): Looking for offline work (Uber), crypto, or requires high capital.
+        8-10 (PERFECT): Looking for a realistic online side hustle, willing to work.`,
+        replyPrompt: `You are a pragmatic online seller.
+        1. Validate that most side hustle advice (dropshipping/crypto) is garbage.
+        2. Explain the safest route is digital products/POD on Etsy because of zero inventory cost.
+        3. Mention you bypassed Etsy's expensive ads using programmatic Pinterest and wrote a free roadmap on "estywithoutads.site".
+        4. Keep it short, blunt, and human. No greetings.`
+    },
+    PINQUB: {
+        name: "PinQub",
+        color: 0xE74C3C, // Red
+        subreddits: ["EtsySellers", "Etsy", "dropshipping", "printondemand", "ecommerce", "Pinterest","EtsyCommunity","Printify","MerchPrintOnDemand","dropship","DropShipping101","Dropshipping_Guide","DropshippingTips","DropshippingVenture","shopify","ShopifyeCommerce","ecommercemarketing","printful"
+            
+        ],
+        intentKeywords: ['etsy ads', 'cpc', 'no sales', 'automate', 'tailwind', 'too much time', 'pinterest traffic', 'profit margin', 'views dropped'],
+        contextKeywords: ['etsy', 'store', 'shop', 'listing', 'traffic', 'views', 'visits', 'sales'],
+        qualifyPrompt: `You are scoring leads for PinQub (automated Pinterest SaaS for e-commerce).
+        Rate 1-10.
+        1-4 (REJECT): Customer complaints, shipping delays, asking to critique their art.
+        8-10 (PERFECT): Active seller complaining about Etsy Ads eating margins, algorithm drops, OR asking how to automate Pinterest without burnout or need help getting traffic.`,
+        replyPrompt: `You are an experienced high-volume e-commerce seller.
+        1. Validate that Etsy ads are a money pit right now with crazy CPCs.
+        2. State that the only way to scale is automated Pinterest traffic.
+        3. Mention you stopped pinning manually and use "pinqub" to autonomously generate and drip-feed variations.
+        4. Keep it short and choppy. No greetings. Keep "pinqub" lowercase.`
+    }
+};
 
-// SignalQub Filtering Keywords
-const intentKeywords = ['mettings','bounce rate','cold call','no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes too much time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam','leads', 'local'];
-const contextKeywords = ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'];
-
-async function verifyLeadWithAI(title, text) {
+async function verifyLeadWithAI(campaign, title, text) {
     try {
-        const prompt = `You are a ruthless, highly analytical Chief Revenue Officer qualifying leads for a B2B marketing tool called SignalQub.
+        // Ensure the prompt explicitly asks for JSON to satisfy the API requirements
+        const prompt = `${campaign.qualifyPrompt}\n\nTitle: ${title}\nBody: ${text.substring(0, 500)}\n\nYou must respond in JSON format. Return ONLY a raw JSON object. Example: {"score": 8, "reason": "brief 1-sentence explanation"}`;
         
-        SignalQub helps marketing agencies find local businesses that are actively failing technical website audits (e.g., no schema, bad SEO, broken sites) so they have an angle for their cold outreach.
-        
-        Analyze this Reddit post. Rate how perfectly this matches our ideal customer profile.
-        
-        Title: ${title}
-        Body: ${text.substring(0, 500)}
-        
-        CRITICAL SCORING RULES:
-        - 1-4 (REJECT): The poster is a developer/founder building their own SaaS tool, validating an app, asking for feedback on a product, or promoting a competitor. OR the post is about fulfillment, operations, or managing existing clients.
-        - 5-7 (MAYBE): Relevant industry, but they aren't explicitly expressing pain about lead generation.
-        - 8-10 (PERFECT): High intent agency owner/freelancer actively struggling to ACQUIRE clients (e.g., cold email going to spam, zero replies, bad lead lists, Apollo isn't working, cold calling sucks).
-        
-        Return ONLY a raw JSON object. Do not use markdown formatting or backticks.
-        Example: {"score": 8, "reason": "brief 1-sentence explanation"}`;
-
         const response = await openai.chat.completions.create({
             model: "gpt-4o",
+            response_format: { type: "json_object" }, // 🛑 THIS IS THE MAGIC FIX 🛑
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1
         });
         
-        let rawContent = response.choices[0].message.content.trim();
-        if (rawContent.startsWith('```json')) {
-            rawContent = rawContent.replace(/^```json/, '').replace(/```$/, '').trim();
-        } else if (rawContent.startsWith('```')) {
-            rawContent = rawContent.replace(/^```/, '').replace(/```$/, '').trim();
-        }
+        const rawContent = response.choices[0].message.content.trim();
         
-        const result = JSON.parse(rawContent);
-        return {
-            score: parseInt(result.score) || 0,
-            reason: result.reason || "No reason provided."
+        // Because of response_format, we know for a fact this is pure JSON. No regex needed.
+        const result = JSON.parse(rawContent); 
+        
+        return { 
+            score: parseInt(result.score) || 0, 
+            reason: result.reason || "No reason provided." 
         };
     } catch (error) {
-        console.error("❌ [AI FILTER ERROR] Failed to qualify lead:", error.message);
+        console.error(`❌ [AI FILTER ERROR] ${campaign.name}:`, error.message);
         return { score: 0, reason: "API Error" }; 
     }
 }
 
-async function generateReply(title, text) {
+async function generateSummary(title, text) {
     try {
-        console.log(`🧠 [AI] Generating stealth draft for: "${title.substring(0, 30)}..."`);
-        
-        const prompt = `You are a cynical, pragmatic, and highly successful digital agency owner (~$50k MRR) scrolling Reddit on your phone. You despise marketing gurus, buzzwords, and generic advice. A struggling agency owner just posted this:
-        
-        Title: ${title}
-        Body: ${text}
+        console.log(`🧠 [AI] Generating summary for: "${title.substring(0, 30)}..."`);
+        const prompt = `You are an analytical assistant. Read this Reddit post:\nTitle: ${title}\nBody: ${text}\nTASK: Write a blunt, 2-sentence summary of the user's exact problem. Do not offer solutions.`;
 
-        TASK: Write a highly authentic, blunt, and context-aware reply. 
-
-        THE STEALTH FRAMEWORK (Follow strictly):
-        1. THE DIRECT HIT (ADAPT TO THEIR POST): Do not use greetings. Start your first sentence by directly validating their EXACT problem. If they get no replies, tell them their script sucks. If they are burnt out or overwhelmed, tell them it's because they are taking on cheap clients and using bad workflows.
-        2. THE PIVOT (THE ROOT CAUSE): Connect their struggle back to poor prospecting. Explain that whether it's low reply rates, ghosting, or burnout, the root cause is pitching generic businesses without knowing their pain points first.
-        3. THE RELUCTANT DROP: Tell them how you fix this. Mention you either spend hours manually auditing Google Maps (looking for missing websites, broken SSLs, bad SEO) to find leverage, OR you just use "signalqub" to instantly pull a list of local businesses actively failing technical checks so you know exactly who actually needs help.
-        4. THE EXECUTION: End with exactly how to use that data (e.g., "Take a screenshot of their broken site and send it...").
-
-        CRITICAL REDDIT RULES:
-        - No EM DASHES
-        - KEEP IT SHORT LIKE 3-4 LINES
-        - NEVER sound preachy. Do not say things like "You're drowning because you’re stuck in a cycle of tactical execution." Speak like a normal human agency owner.
-        - NO GREETINGS OR SIGN-OFFS. 
-        - NEVER capitalize "signalqub". Keep it strictly lowercase.
-        - Formatting: Use short, choppy paragraphs (1-3 sentences max). This is a mobile app.
-        - Tone: Blunt, pragmatic, slightly informal. Write like a human typing fast. 
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini", 
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.3
+        });
         
-        ANTI-AI GLOSSARY - YOU WILL BE PENALIZED IF YOU USE THESE WORDS:
-        tactical execution, strategic backbone, game-changer, lucrative, supercharge, dive in, landscape, crucial, paramount, elevate, delve, testament, realm, unlock, leverage, navigate, tapestry, robust.`;
+        return response.choices[0].message.content.trim();
+    } catch (error) {
+        console.error("❌ [AI ERROR] Summary failed:", error.message);
+        return "Error generating summary.";
+    }
+}
+
+async function generateReply(campaignKey, title, text) {
+    const campaign = CAMPAIGNS[campaignKey];
+    try {
+        console.log(`🧠 [AI] Generating stealth draft for [${campaign.name}]`);
+        
+        const prompt = `${campaign.replyPrompt}\n\nStruggling user posted:\nTitle: ${title}\nBody: ${text}\n\nANTI-AI GLOSSARY - YOU WILL BE PENALIZED IF YOU USE THESE WORDS: tactical execution, strategic backbone, game-changer, lucrative, supercharge, dive in, landscape, crucial, paramount, elevate, delve, testament, realm, unlock, leverage, navigate, tapestry, robust.`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4o", 
@@ -125,7 +152,6 @@ async function generateReply(title, text) {
             max_tokens: 300 
         });
         
-        console.log(`✅ [AI] Stealth reply drafted successfully.`);
         return response.choices[0].message.content.trim();
     } catch (error) {
         console.error("❌ [AI ERROR] Reply failed:", error.message);
@@ -133,72 +159,26 @@ async function generateReply(title, text) {
     }
 }
 
-async function generateSummary(title, text) {
-    try {
-        console.log(`🧠 [AI] Generating summary for: "${title.substring(0, 30)}..."`);
-        const prompt = `You are an analytical assistant. Read this Reddit post:
-        Title: ${title}
-        Body: ${text}
-        TASK: Write a blunt, 2-sentence summary of the user's exact lead generation or marketing problem. Do not offer solutions.`;
-
-        const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini", 
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.3
-        });
-        
-        console.log(`✅ [AI] Summary generated successfully.`);
-        return response.choices[0].message.content.trim();
-    } catch (error) {
-        console.error("❌ [AI ERROR] Summary failed:", error.message);
-        return "Error generating summary.";
-    }
-}
-
 // --- Concurrent Subreddit Processor ---
-async function processSubreddit(sub, channel) {
+async function processSubreddit(sub, campaign, channel) {
     let subPostsChecked = 0;
     let subLeadsFound = 0;
 
     try {
         const config = {
-            httpsAgent: proxyAgent,
-            httpAgent: proxyAgent,
-            proxy: false, 
-            timeout: 15000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
-            }
+            httpsAgent: proxyAgent, httpAgent: proxyAgent, proxy: false, timeout: 15000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
         };
 
         const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=5`, config);
-        
-        let feed;
-        try {
-            // Parse the raw XML into an object
-            feed = await parser.parseString(response.data);
-        } catch (parseError) {
-            console.log(`  ⚠️ [WARNING] r/${sub} returned invalid XML. Skipping.`);
-            return { subPostsChecked: 0, subLeadsFound: 0 };
-        }
+        let feed = await parser.parseString(response.data);
 
-        const posts = feed.items;
-
-        for (const post of posts) {
-            // RSS Data Mapping
+        for (const post of feed.items) {
             const title = post.title || '';
-            const selftext = post.contentSnippet || ''; // rss-parser automatically strips HTML
+            const selftext = post.contentSnippet || '';
             const permalink = post.link || '';
             const id = post.id || permalink;
-            
-            // Clean up author string (Reddit outputs /u/username)
-            let author = post.author || 'Unknown';
-            if (author.startsWith('/u/')) author = author.substring(3);
+            let author = (post.author || 'Unknown').replace('/u/', '');
 
             if (processedPosts.has(id)) continue;
             processedPosts.add(id);
@@ -206,27 +186,25 @@ async function processSubreddit(sub, channel) {
 
             const created_utc = new Date(post.isoDate || post.pubDate).getTime() / 1000;
             const postAgeMins = (Math.floor(Date.now() / 1000) - created_utc) / 60;
-            
             if (postAgeMins > 15) continue; 
 
             const textToAnalyze = `${title} ${selftext}`.toLowerCase();
-            
-            const hasIntent = intentKeywords.some(kw => textToAnalyze.includes(kw));
-            const hasContext = contextKeywords.some(kw => textToAnalyze.includes(kw));
+            const hasIntent = campaign.intentKeywords.some(kw => textToAnalyze.includes(kw));
+            const hasContext = campaign.contextKeywords.some(kw => textToAnalyze.includes(kw));
 
             if (hasIntent && hasContext) {
-                console.log(`   🧠 [AI FILTER] Keyword match in r/${sub}. Scoring: "${title.substring(0, 30)}..."`);
+                console.log(`   🧠 [AI FILTER] Keyword match in r/${sub} for [${campaign.name}]`);
                 
-                const aiData = await verifyLeadWithAI(title, selftext);
+                const aiData = await verifyLeadWithAI(campaign, title, selftext);
 
                 if (aiData.score >= 8) {
                     subLeadsFound++;
-                    console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub}`);
+                    console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub} for ${campaign.name}`);
 
                     const embed = new EmbedBuilder()
-                        .setColor(0x00FF00)
-                        .setTitle(`🎯 Target Lead Found: r/${sub} (Score: ${aiData.score}/10)`)
-                        .setURL(permalink) // RSS provides absolute links natively
+                        .setColor(campaign.color)
+                        .setTitle(`🎯 [${campaign.name}] Target Found: r/${sub} (Score: ${aiData.score}/10)`)
+                        .setURL(permalink)
                         .setAuthor({ name: `u/${author}` })
                         .addFields(
                             { name: 'Title', value: title.substring(0, 256) },
@@ -235,14 +213,20 @@ async function processSubreddit(sub, channel) {
                         .setDescription(selftext ? selftext.substring(0, 300) + '...' : '*[No body text]*')
                         .setFooter({ text: `Posted ${Math.floor(postAgeMins)} mins ago` });
 
+                    // Find the key (e.g. "SIGNALQUB") to attach to the button payload
+                    const campaignKey = Object.keys(CAMPAIGNS).find(key => CAMPAIGNS[key].name === campaign.name);
+                    
+                    // Shorten ID to avoid Discord's 100 char limit on customIds
+                    const shortId = Buffer.from(id).toString('base64').substring(0, 20);
+
                     const row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
-                            .setCustomId(`summary_${id}`)
+                            .setCustomId(`summary_${shortId}`)
                             .setLabel('Get Summary')
                             .setStyle(ButtonStyle.Secondary),
                         new ButtonBuilder()
-                            .setCustomId(`reply_${id}`)
-                            .setLabel('Draft Reply')
+                            .setCustomId(`reply_${campaignKey}_${shortId}`)
+                            .setLabel(`Draft ${campaign.name} Reply`)
                             .setStyle(ButtonStyle.Primary)
                     );
 
@@ -256,13 +240,8 @@ async function processSubreddit(sub, channel) {
                 }
             }
         }
-        
-        console.log(`   ✔️ r/${sub} complete. Found ${subLeadsFound} verified leads.`);
         return { subPostsChecked, subLeadsFound };
-        
     } catch (err) {
-        const status = err.response ? err.response.status : err.code;
-        console.error(`   ❌ [PROXY ERROR] r/${sub}: Request failed with status ${status}`);
         return { subPostsChecked: 0, subLeadsFound: 0 };
     }
 }
@@ -275,8 +254,8 @@ async function scanReddit() {
     }
 
     console.log('\n=============================================');
-    console.log('🔍 [ENGINE] Initiating 10-minute BATCH scan cycle...');
-    console.log(`📡 [PROXY] Routing traffic through Bright Data network`);
+    console.log('🔍 [ENGINE] Initiating Multi-Campaign BATCH scan cycle...');
+    console.log(`📡 [PROXY] Routing traffic securely via Decodo`);
     console.log('=============================================\n');
 
     let channel;
@@ -290,18 +269,21 @@ async function scanReddit() {
     let totalLeadsFound = 0;
     const BATCH_SIZE = 5;
 
-    for (let i = 0; i < subreddits.length; i += BATCH_SIZE) {
-        const batch = subreddits.slice(i, i + BATCH_SIZE);
-        console.log(`📥 [SCRAPER] Fetching batch concurrently: ${batch.join(', ')}...`);
+    for (const [key, campaign] of Object.entries(CAMPAIGNS)) {
+        console.log(`\n📦 Executing Campaign: ${campaign.name}`);
         
-        const batchResults = await Promise.all(batch.map(sub => processSubreddit(sub, channel)));
+        for (let i = 0; i < campaign.subreddits.length; i += BATCH_SIZE) {
+            const batch = campaign.subreddits.slice(i, i + BATCH_SIZE);
+            console.log(`📥 [SCRAPER] Fetching batch concurrently: ${batch.join(', ')}...`);
+            
+            const batchResults = await Promise.all(batch.map(sub => processSubreddit(sub, campaign, channel)));
 
-        for (const res of batchResults) {
-            totalNewPostsChecked += res.subPostsChecked;
-            totalLeadsFound += res.subLeadsFound;
+            for (const res of batchResults) {
+                totalNewPostsChecked += res.subPostsChecked;
+                totalLeadsFound += res.subLeadsFound;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2500));
         }
-
-        await new Promise(resolve => setTimeout(resolve, 2500));
     }
 
     if (processedPosts.size > 5000) processedPosts.clear();
@@ -315,9 +297,7 @@ async function scanReddit() {
 }
 
 // --- Discord Listeners ---
-// FIXED: Event changed to 'ready' for Discord.js v14
-// --- Discord Listeners ---
-discord.once('clientReady', () => {
+discord.once('ready', () => {
     console.log(`\n🤖 Discord Bot online as ${discord.user.tag}`);
     console.log(`🟢 System is primed and ready. Scraping is currently set to: ${isScraping ? 'ON' : 'OFF'}\n`);
     
@@ -343,7 +323,6 @@ discord.on('interactionCreate', async interaction => {
     if (interaction.customId.startsWith('summary_')) {
         await interaction.deferReply(); 
         console.log(`\n🖱️ [INTERACTION] User requested AI SUMMARY.`);
-
         try {
             const rawData = interaction.message.content.split('||')[1];
             const [title, text] = rawData.split('~~~');
@@ -356,15 +335,19 @@ discord.on('interactionCreate', async interaction => {
         }
     }
 
+    // Handles format: reply_CAMPAIGNKEY_shortId
     if (interaction.customId.startsWith('reply_')) {
         await interaction.deferReply(); 
-        console.log(`\n🖱️ [INTERACTION] User requested AI DRAFT REPLY.`);
+        const parts = interaction.customId.split('_');
+        const campaignKey = parts[1]; // Pulls out SIGNALQUB, ETSY_GUIDE, or PINQUB
+        
+        console.log(`\n🖱️ [INTERACTION] User requested AI DRAFT REPLY for [${campaignKey}].`);
 
         try {
             const rawData = interaction.message.content.split('||')[1];
             const [title, text] = rawData.split('~~~');
 
-            const reply = await generateReply(title, text);
+            const reply = await generateReply(campaignKey, title, text);
             await interaction.editReply(`**🤖 Drafted Reply:**\n${reply}`);
         } catch (error) {
             console.error("❌ [INTERACTION ERROR] Failed to process reply:", error.message);
