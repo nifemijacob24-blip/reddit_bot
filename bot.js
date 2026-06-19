@@ -110,7 +110,13 @@ async function verifyLeadWithAI(campaign, title, text) {
         
         // Because of response_format, we know for a fact this is pure JSON. No regex needed.
         const result = JSON.parse(rawContent); 
-        console.log(`🧠 AI Scored [${aiData.score}] for post: ${post.title}`);
+        // INSIDE verifyLeadWithAI()
+
+        // ❌ CHANGE THIS:
+        // console.log(`🧠 AI Scored [${aiData.score}] for post: ${post.title}`);
+
+        // ✅ TO THIS:
+        console.log(`🧠 AI Scored [${result.score}] for post: ${title}`);
         
         return { 
             score: parseInt(result.score) || 0, 
@@ -173,7 +179,7 @@ async function processSubreddit(sub, campaign, channel) {
         };
         // Adds the current millisecond timestamp to bypass proxy and Reddit CDN caching
         const cacheBuster = Date.now();
-        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=20&t=${cacheBuster}`, config);
+        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=200&t=${cacheBuster}`, config);
         let feed = await parser.parseString(response.data);
 
         for (const post of feed.items) {
@@ -189,7 +195,7 @@ async function processSubreddit(sub, campaign, channel) {
 
             const created_utc = new Date(post.isoDate || post.pubDate).getTime() / 1000;
             const postAgeMins = (Math.floor(Date.now() / 1000) - created_utc) / 60;
-            if (postAgeMins > 15) continue; 
+            if (postAgeMins > 10005) continue; 
 
             const textToAnalyze = `${title} ${selftext}`.toLowerCase();
             const hasIntent = campaign.intentKeywords.some(kw => textToAnalyze.includes(kw));
@@ -244,7 +250,16 @@ async function processSubreddit(sub, campaign, channel) {
             }
         }
         return { subPostsChecked, subLeadsFound };
+    // INSIDE processSubreddit()
+
+    // ❌ CHANGE THIS:
+    // } catch (err) {
+    //     return { subPostsChecked: 0, subLeadsFound: 0 };
+    // }
+
+    // ✅ TO THIS:
     } catch (err) {
+        console.error(`❌ [REDDIT FETCH ERROR] r/${sub}: ${err.message}`);
         return { subPostsChecked: 0, subLeadsFound: 0 };
     }
 }
