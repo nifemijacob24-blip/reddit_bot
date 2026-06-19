@@ -199,7 +199,7 @@ async function processSubreddit(sub, campaign, channel) {
                 
                 const aiData = await verifyLeadWithAI(campaign, title, selftext);
 
-                if (aiData.score >= 6) {
+                if (aiData.score >= 7) {
                     subLeadsFound++;
                     console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub} for ${campaign.name}`);
 
