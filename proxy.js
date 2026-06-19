@@ -43,7 +43,7 @@ const CAMPAIGNS = {
             "freelance", "freelancers", "freelancing", "googlemybusiness", "growthhacking", "localseo", "marketing", 
             "microsaas", "seo", "smma", "socialmediamanagers", "socialmediamarketing", "upwork", "web_design", "webdev"
         ],
-        intentKeywords: ['mettings', 'bounce rate', 'cold call', 'no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes too much time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam', 'leads', 'local'],
+        intentKeywords: ['mettings', 'bounce rate', 'cold call', 'no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam', 'leads', 'local'],
         contextKeywords: ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'],
         qualifyPrompt: `You are a ruthless Chief Revenue Officer qualifying leads for a B2B tool called SignalQub (helps agencies find local businesses failing technical audits).
         Rate 1-10.
@@ -61,7 +61,7 @@ const CAMPAIGNS = {
         color: 0x3498DB, // Blue
         subreddits: ["sidehustle", "makemoney", "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "passive_income", "workonline",
 "OnlineIncomeHustle","thesidehustle","passiveincome","EarnExtraIncome"],
-        intentKeywords: ['need extra cash', 'side hustle ideas', 'how to make money', 'broke', 'passive income', 'zero dollars', 'start online', 'first business'],
+        intentKeywords: ['need cash', 'side hustle ideas', 'make money', 'broke', 'passive income', 'zero dollars', 'start online', 'first business'],
         contextKeywords: ['online', 'home', 'hustle', 'beginner', 'laptop', 'free', 'no capital'],
         qualifyPrompt: `You are scoring leads for a free guide on how to build an Etsy shop with zero ad spend.
         Rate 1-10.
