@@ -171,8 +171,9 @@ async function processSubreddit(sub, campaign, channel) {
             httpsAgent: proxyAgent, httpAgent: proxyAgent, proxy: false, timeout: 15000,
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36' }
         };
-
-        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=5`, config);
+        // Adds the current millisecond timestamp to bypass proxy and Reddit CDN caching
+        const cacheBuster = Date.now();
+        const response = await axios.get(`https://old.reddit.com/r/${sub}/new.rss?limit=20&t=${cacheBuster}`, config);
         let feed = await parser.parseString(response.data);
 
         for (const post of feed.items) {
