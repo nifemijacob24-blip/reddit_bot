@@ -91,6 +91,7 @@ const CAMPAIGNS = {
         3. Mention you stopped pinning manually and use "pinqub" to autonomously generate and drip-feed variations.
         4. Keep it short and choppy. No greetings. Keep "pinqub" lowercase.`
     }
+    
 };
 
 async function verifyLeadWithAI(campaign, title, text) {
@@ -109,6 +110,7 @@ async function verifyLeadWithAI(campaign, title, text) {
         
         // Because of response_format, we know for a fact this is pure JSON. No regex needed.
         const result = JSON.parse(rawContent); 
+        console.log(`🧠 AI Scored [${aiData.score}] for post: ${post.title}`);
         
         return { 
             score: parseInt(result.score) || 0, 
@@ -197,7 +199,7 @@ async function processSubreddit(sub, campaign, channel) {
                 
                 const aiData = await verifyLeadWithAI(campaign, title, selftext);
 
-                if (aiData.score >= 8) {
+                if (aiData.score >= 6) {
                     subLeadsFound++;
                     console.log(`   🚨 [HIGH QUALITY LEAD] Score ${aiData.score}/10 in r/${sub} for ${campaign.name}`);
 
