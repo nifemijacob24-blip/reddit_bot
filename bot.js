@@ -56,23 +56,7 @@ const CAMPAIGNS = {
         4. THE EXECUTION: Tell them to screenshot the broken site and send it.
         Keep it short (3-4 lines). No greetings. Keep "signalqub" lowercase.`
     },
-    ETSY_GUIDE: {
-        name: "EtsyWithoutAds",
-        color: 0x3498DB, // Blue
-        subreddits: ["sidehustle", "makemoney", "entrepreneurridealong", "entrepreneurs", "entrepreneurship", "passive_income", "workonline",
-"OnlineIncomeHustle","thesidehustle","passiveincome","EarnExtraIncome"],
-        intentKeywords: ['need cash', 'side hustle ideas', 'make money', 'broke', 'passive income', 'zero dollars', 'start online', 'first business'],
-        contextKeywords: ['online', 'home', 'hustle', 'beginner', 'laptop', 'free', 'no capital'],
-        qualifyPrompt: `You are scoring leads for a free guide on how to build an Etsy shop with zero ad spend.
-        Rate 1-10.
-        1-4 (REJECT): Looking for offline work (Uber), crypto, or requires high capital.
-        8-10 (PERFECT): Looking for a realistic online side hustle, willing to work.`,
-        replyPrompt: `You are a pragmatic online seller.
-        1. Validate that most side hustle advice (dropshipping/crypto) is garbage.
-        2. Explain the safest route is digital products/POD on Etsy because of zero inventory cost.
-        3. Mention you bypassed Etsy's expensive ads using programmatic Pinterest and wrote a free roadmap on "estywithoutads.site".
-        4. Keep it short, blunt, and human. No greetings.`
-    },
+
     PINQUB: {
         name: "PinQub",
         color: 0xE74C3C, // Red
