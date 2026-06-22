@@ -151,7 +151,7 @@ async function processCampaign(campaign, channel) {
             const postAgeMins = (Math.floor(Date.now() / 1000) - created_utc) / 60;
             
             // Limit to posts within the last 30 minutes to match the interval
-            if (postAgeMins > 30) continue; 
+            if (postAgeMins > 20) continue; 
 
             const textToAnalyze = `${title} ${selftext}`.toLowerCase();
             const hasIntent = campaign.intentKeywords.some(kw => textToAnalyze.includes(kw));
@@ -161,7 +161,7 @@ async function processCampaign(campaign, channel) {
             if (hasIntent && hasContext) {
                 const aiData = await verifyLeadWithAI(campaign, title, selftext);
 
-                if (aiData.score >= 7) {
+                if (aiData.score >= 8) {
                     leadsFound++;
                     console.log(`   🚨 [GLOBAL LEAD] Score ${aiData.score}/10 found on Reddit!`);
 
@@ -253,7 +253,7 @@ discord.once('ready', () => {
     console.log(`\n🤖 Discord Bot online as ${discord.user.tag}`);
     console.log(`🟢 System primed. Scanning entire Reddit every 10 minutes.\n`);
     
-    setInterval(scanReddit, 30 * 60 * 1000); 
+    setInterval(scanReddit, 20 * 60 * 1000); 
     scanReddit(); 
 });
 
