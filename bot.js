@@ -26,25 +26,32 @@ let isScraping = true;
 const processedPosts = new Set();
 
 // --- GLOBAL CAMPAIGN CONFIGURATIONS ---
+// --- GLOBAL CAMPAIGN CONFIGURATIONS ---
 const CAMPAIGNS = {
     SIGNALQUB: {
         name: "SignalQub",
         color: 0x00FF00,
-        // 🌍 Reddit Global Search Query (Finds any post containing one of the Contexts AND one of the Intents)
-        searchQuery: '(agency OR b2b OR "web design" OR seo OR smma) AND ("cold call" OR "no leads" OR "zero replies" OR "cold email" OR "get clients" OR prospecting OR "bad leads")',
+        // 🛑 Added negative modifiers (-hiring, -job, -"for hire") to strip out job boards and freelancers
+        searchQuery: '(agency OR b2b OR "web design" OR seo OR smma) AND ("cold call" OR "no leads" OR "zero replies" OR "cold email" OR "get clients" OR prospecting) -hiring -job -"for hire" -"looking for"',
         intentKeywords: ['mettings', 'bounce rate', 'cold call', 'no leads', 'zero replies', 'struggling to close', 'exhausted', 'takes time', 'cold email', 'no conversions', 'get clients', 'giving up', 'prospecting', 'bad leads', 'spam', 'leads', 'local'],
         contextKeywords: ['agency', 'b2b', 'web design', 'seo', 'smma', 'cold outreach', 'clients', 'retainer', 'pitch'],
-        qualifyPrompt: `You are a ruthless Chief Revenue Officer qualifying leads for a B2B tool called SignalQub (helps agencies find local businesses failing technical audits). Rate 1-10. 1-4 (REJECT): Building their own SaaS, asking for app feedback. 8-10 (PERFECT): Agency owner actively struggling to ACQUIRE clients (cold email spam, zero replies).`,
+        // 🛑 AI now explicitly rejects job postings and freelancers
+        qualifyPrompt: `You are a ruthless Chief Revenue Officer qualifying leads for a B2B tool called SignalQub. Rate 1-10. 
+        1-4 (REJECT): Job postings, people hiring for cold emailers, freelancers looking for work, or software updates. 
+        8-10 (PERFECT): Agency owner actively complaining about struggling to ACQUIRE clients (cold email spam, zero replies).`,
         replyPrompt: `You are a cynical, pragmatic agency owner (~$50k MRR). 1. Validate problem. 2. Root cause is generic pitching. 3. Mention "signalqub". 4. Tell them to screenshot site. Keep it short (3-4 lines).`
     },
     PINQUB: {
         name: "PinQub",
         color: 0xE74C3C,
-        // 🌍 Reddit Global Search Query
-        searchQuery: '(etsy OR shopify OR dropshipping OR printondemand OR ecommerce) AND ("etsy ads" OR cpc OR "no sales" OR automate OR "too much time" OR "pinterest traffic" OR "profit margin" OR "views dropped")',
+        // 🛑 Added negative modifiers to strip out customer complaints and general dev talk
+        searchQuery: '(etsy OR shopify OR dropshipping OR printondemand OR ecommerce) AND ("etsy ads" OR cpc OR "no sales" OR automate OR "too much time" OR "pinterest traffic" OR "profit margin" OR "views dropped") -scam -customers -"did not receive"',
         intentKeywords: ['etsy ads', 'cpc', 'no sales', 'automate', 'tailwind', 'too much time', 'pinterest traffic', 'profit margin', 'views dropped'],
         contextKeywords: ['etsy', 'store', 'shop', 'listing', 'traffic', 'views', 'visits', 'sales'],
-        qualifyPrompt: `You are scoring leads for PinQub (automated Pinterest SaaS). Rate 1-10. 1-4 (REJECT): Customer complaints, shipping delays. 8-10 (PERFECT): Active seller asking if Etsy Ads are worth it, complaining about margins, algorithm drops, OR asking how to automate Pinterest.`,
+        // 🛑 AI now explicitly rejects accounting/inventory automation and focuses solely on traffic/marketing
+        qualifyPrompt: `You are scoring leads for PinQub (automated Pinterest SaaS). Rate 1-10. 
+        1-4 (REJECT): People automating accounting/shipping/inventory, job postings, or buyers complaining about a store. 
+        8-10 (PERFECT): Active e-commerce seller actively asking how to get more traffic, complaining about ad costs, or asking about Pinterest traffic.`,
         replyPrompt: `You are an experienced high-volume seller. 1. Validate Etsy ads CPCs. 2. State automation is the only way. 3. Mention "pinqub". 4. Keep it short. Keep "pinqub" lowercase.`
     }
 };
@@ -246,7 +253,7 @@ discord.once('ready', () => {
     console.log(`\n🤖 Discord Bot online as ${discord.user.tag}`);
     console.log(`🟢 System primed. Scanning entire Reddit every 10 minutes.\n`);
     
-    setInterval(scanReddit, 10 * 60 * 1000); 
+    setInterval(scanReddit, 30 * 60 * 1000); 
     scanReddit(); 
 });
 
